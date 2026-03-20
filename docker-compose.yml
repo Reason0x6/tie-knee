@@ -1,0 +1,8 @@
+services:
+  tiny-text-api:
+    build:
+      context: .
+    ports:
+      - "8000:8000"
+    environment:
+      API_KEYS: dev-key-change-me
