@@ -4,9 +4,12 @@ Small FastAPI service that converts plain text into tiny unicode text using the 
 
 ## Features
 
-- `POST /v1/tiny-text` with API key validation
+- `POST /v1/tiny-text`
+- `POST /v1/zalgo-text`
+- `POST /v1/slugify`
+- `POST /v1/text-stats`
+- `POST /v1/case-convert`
 - `X-API-Key` and `Authorization: Bearer ...` auth support
-- Three output variants: `superscript`, `small_caps`, and `subscript`
 - Dockerized for local runs and GHCR publishing
 - GitHub Actions workflow for image builds on `main`
 
