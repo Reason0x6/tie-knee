@@ -25,11 +25,11 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(
-    title="Tiny Text API",
+    title="Text Utils API",
     version="1.0.0",
     description=(
-        "Convert text into tiny unicode variants based on the LingoJam Tiny Text "
-        "Generator mappings."
+        "General-purpose text utility API for unicode transforms, slug generation, "
+        "text analysis, and case conversion."
     ),
     lifespan=lifespan,
 )

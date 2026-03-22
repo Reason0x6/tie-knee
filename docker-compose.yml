@@ -1,5 +1,5 @@
 services:
-  tiny-text-api:
+  text-utils-api:
     build:
       context: .
     ports:

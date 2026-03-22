@@ -1,6 +1,6 @@
-# Tiny Text API
+# Text Utils API
 
-Small FastAPI service that converts plain text into tiny unicode text using the same mappings used by the LingoJam Tiny Text Generator.
+Small FastAPI service for text transformations and analysis. It includes unicode styling, zalgo text generation, slug creation, text statistics, and case conversion behind API key authentication.
 
 ## Features
 
@@ -13,7 +13,17 @@ Small FastAPI service that converts plain text into tiny unicode text using the 
 - Dockerized for local runs and GHCR publishing
 - GitHub Actions workflow for image builds on `main`
 
-## Request example
+## Endpoints
+
+- `POST /v1/tiny-text`: tiny unicode variants with `superscript`, `small_caps`, and `subscript`
+- `POST /v1/zalgo-text`: adds combining marks for glitch-style text
+- `POST /v1/slugify`: generates URL-safe slugs
+- `POST /v1/text-stats`: returns word, sentence, line, and character counts
+- `POST /v1/case-convert`: converts text into common naming and display cases
+
+## Request examples
+
+Tiny text:
 
 ```bash
 curl -X POST http://localhost:8000/v1/tiny-text \
@@ -35,6 +45,24 @@ Example response:
     "subscript": "ₕₑₗₗₒ 𝓌ₒᵣₗ𝒹!"
   }
 }
+```
+
+Slugify:
+
+```bash
+curl -X POST http://localhost:8000/v1/slugify \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-key-change-me" \
+  -d "{\"text\":\"Hello, API World!\",\"separator\":\"-\",\"lowercase\":true}"
+```
+
+Text stats:
+
+```bash
+curl -X POST http://localhost:8000/v1/text-stats \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-key-change-me" \
+  -d "{\"text\":\"Hello world. Second line!\"}"
 ```
 
 ## Local run
@@ -63,12 +91,14 @@ The API will be available at `http://localhost:8000`, with Swagger docs at `http
 docker compose up --build
 ```
 
+The compose service name is `text-utils-api`.
+
 ## GHCR publishing
 
 The workflow at `.github/workflows/ghcr.yml` builds and pushes the image to:
 
 ```text
-ghcr.io/<your-github-owner>/tiny-text-api
+ghcr.io/<your-github-owner>/text-utils-api
 ```
 
 To make that work:
