@@ -8,6 +8,15 @@ from app.transforms import CaseMode, ZalgoDirection, case_variants, slugify_text
 client = TestClient(app)
 
 
+def test_root_returns_landing_page() -> None:
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+    assert "Text Utils API" in response.text
+    assert "/docs" in response.text
+
+
 def test_healthcheck_is_public() -> None:
     response = client.get("/healthz")
 
