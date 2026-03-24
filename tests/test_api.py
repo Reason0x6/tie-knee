@@ -1,4 +1,7 @@
+from io import BytesIO
+
 from fastapi.testclient import TestClient
+from PIL import Image
 
 from app.main import app
 from app.tiny_text import TinyTextMode, transform_text
@@ -118,3 +121,17 @@ def test_case_convert_endpoint() -> None:
     expected = case_variants(source_text)
     assert body["output_text"] == expected[CaseMode.CAMEL.value]
     assert body["variants"]["constant"] == expected[CaseMode.CONSTANT.value]
+
+
+def test_test_image_endpoint() -> None:
+    response = client.get(
+        "/v1/test-image",
+        headers={"X-API-Key": "test-key"},
+        params={"width": 320, "height": 180, "text": "Hello", "bg": "112233", "fg": "ffffff"},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+
+    image = Image.open(BytesIO(response.content))
+    assert image.size == (320, 180)

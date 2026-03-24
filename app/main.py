@@ -1,11 +1,12 @@
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI
-from fastapi.responses import HTMLResponse
+from fastapi import Depends, FastAPI, Query
+from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, Field
 
 from app.auth import require_api_key
 from app.config import get_settings
+from app.images import generate_placeholder_image
 from app.tiny_text import TinyTextMode, all_variants
 from app.transforms import (
     CaseMode,
@@ -143,7 +144,7 @@ LANDING_PAGE = """<!DOCTYPE html>
         <h1>Text transforms, stats, and formatting in one place.</h1>
         <p>
           Use authenticated JSON endpoints for tiny unicode text, zalgo output, slug generation,
-          text statistics, and case conversion. Interactive API docs are available below.
+          text statistics, case conversion, and configurable test image generation. Interactive API docs are available below.
         </p>
         <div class="actions">
           <a class="button" href="/docs">Open Swagger Docs</a>
@@ -170,6 +171,10 @@ LANDING_PAGE = """<!DOCTYPE html>
         <article class="card">
           <h2><code>POST /v1/case-convert</code></h2>
           <p>Convert text into snake, kebab, camel, pascal, sentence, title, and constant variants.</p>
+        </article>
+        <article class="card">
+          <h2><code>GET /v1/test-image</code></h2>
+          <p>Generate a configurable placeholder PNG with custom size, text, and foreground/background colors.</p>
         </article>
         <article class="card">
           <h2><code>GET /healthz</code></h2>
@@ -254,6 +259,31 @@ def landing_page() -> HTMLResponse:
 @app.get("/healthz")
 def healthcheck() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get(
+    "/v1/test-image",
+    response_class=Response,
+    responses={200: {"content": {"image/png": {}}}},
+)
+def create_test_image(
+    width: int = Query(default=600, ge=1, le=4000),
+    height: int = Query(default=400, ge=1, le=4000),
+    text: str = Query(default=""),
+    bg: str = Query(default="dddddd"),
+    fg: str = Query(default="222222"),
+    _: str = Depends(require_api_key),
+) -> Response:
+    return Response(
+        content=generate_placeholder_image(
+            width=width,
+            height=height,
+            text=text,
+            background=bg,
+            foreground=fg,
+        ),
+        media_type="image/png",
+    )
 
 
 @app.post("/v1/tiny-text", response_model=TinyTextResponse)

@@ -9,6 +9,7 @@ Small FastAPI service for text transformations and analysis. It includes unicode
 - `POST /v1/slugify`
 - `POST /v1/text-stats`
 - `POST /v1/case-convert`
+- `GET /v1/test-image`
 - `X-API-Key` and `Authorization: Bearer ...` auth support
 - Dockerized for local runs and GHCR publishing
 - GitHub Actions workflow for image builds on `main`
@@ -20,6 +21,7 @@ Small FastAPI service for text transformations and analysis. It includes unicode
 - `POST /v1/slugify`: generates URL-safe slugs
 - `POST /v1/text-stats`: returns word, sentence, line, and character counts
 - `POST /v1/case-convert`: converts text into common naming and display cases
+- `GET /v1/test-image`: generates configurable placeholder PNGs similar to `placehold.co`
 
 ## Request examples
 
@@ -63,6 +65,14 @@ curl -X POST http://localhost:8000/v1/text-stats \
   -H "Content-Type: application/json" \
   -H "X-API-Key: dev-key-change-me" \
   -d "{\"text\":\"Hello world. Second line!\"}"
+```
+
+Test image:
+
+```bash
+curl "http://localhost:8000/v1/test-image?width=600&height=300&text=Hello&bg=f4efe7&fg=1f1d1a" \
+  -H "X-API-Key: dev-key-change-me" \
+  --output placeholder.png
 ```
 
 ## Local run
