@@ -26,7 +26,7 @@ Small FastAPI service for text transformations, markdown sharing, and analysis. 
 - `POST /v1/text-stats`: returns word, sentence, line, and character counts
 - `POST /v1/case-convert`: converts text into common naming and display cases
 - `GET /v1/test-image`: generates configurable placeholder PNGs similar to `placehold.co`
-- `POST /v1/share`: creates a persistent markdown share for a chosen slug
+- `POST /v1/share`: creates a persistent markdown share for a chosen slug and can explicitly overwrite an existing slug
 - `GET /v1/share/{slug}`: returns stored markdown share metadata and content as JSON
 - `GET /share`: pastebin-style frontend for creating shares
 - `GET /share/{slug}`: public rendered markdown page for a stored share
@@ -90,6 +90,15 @@ curl -X POST http://localhost:8000/v1/share \
   -H "Content-Type: application/json" \
   -H "X-API-Key: dev-key-change-me" \
   -d "{\"slug\":\"example\",\"title\":\"Example Share\",\"markdown\":\"# Hello\\n\\nThis is **markdown**.\"}"
+```
+
+Overwrite an existing slug:
+
+```bash
+curl -X POST http://localhost:8000/v1/share \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-key-change-me" \
+  -d "{\"slug\":\"example\",\"title\":\"Updated Share\",\"markdown\":\"Updated body\",\"overwrite\":true}"
 ```
 
 Example share URL:

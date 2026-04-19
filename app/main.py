@@ -9,7 +9,13 @@ from pydantic import BaseModel, Field
 from app.auth import require_api_key
 from app.config import get_settings
 from app.images import generate_placeholder_image
-from app.shares import ShareAlreadyExistsError, create_share, get_share, init_share_db
+from app.shares import (
+    ShareAlreadyExistsError,
+    create_share,
+    get_share,
+    init_share_db,
+    overwrite_share,
+)
 from app.tiny_text import TinyTextMode, all_variants
 from app.transforms import (
     CaseMode,
@@ -274,6 +280,10 @@ class ShareRequest(BaseModel):
     )
     markdown: str = Field(..., min_length=1, max_length=200_000)
     title: str | None = Field(default=None, max_length=120)
+    overwrite: bool = Field(
+        default=False,
+        description="Set to true to replace an existing share with the same slug.",
+    )
 
 
 class ShareResponse(BaseModel):
@@ -282,6 +292,7 @@ class ShareResponse(BaseModel):
     markdown: str
     created_at: str
     share_url: str
+    overwritten: bool
 
 
 def _share_url(slug: str) -> str:
@@ -411,6 +422,17 @@ SHARE_EDITOR_PAGE = """<!DOCTYPE html>
         border: 1px solid rgba(105, 182, 193, 0.25);
         word-break: break-all;
       }
+      .warningbox {
+        display: none;
+        margin-top: 14px;
+        padding: 12px 14px;
+        border-radius: 12px;
+        background: rgba(255, 122, 69, 0.12);
+        border: 1px solid rgba(255, 122, 69, 0.3);
+      }
+      .warningbox button {
+        margin-top: 10px;
+      }
       @media (max-width: 980px) {
         .shell, .form-grid {
           grid-template-columns: 1fr;
@@ -452,6 +474,10 @@ SHARE_EDITOR_PAGE = """<!DOCTYPE html>
             <button id="publish" type="button">Publish Share</button>
             <div class="status" id="status">Ready.</div>
             <div class="linkbox" id="linkbox"></div>
+            <div class="warningbox" id="warningbox">
+              <div id="warningtext"></div>
+              <button id="overwrite" type="button">Overwrite Existing Share</button>
+            </div>
           </div>
         </section>
         <section class="panel">
@@ -470,13 +496,16 @@ SHARE_EDITOR_PAGE = """<!DOCTYPE html>
       const titleInput = document.getElementById("title");
       const markdownInput = document.getElementById("markdown");
       const publishButton = document.getElementById("publish");
+      const overwriteButton = document.getElementById("overwrite");
       const statusEl = document.getElementById("status");
       const linkBox = document.getElementById("linkbox");
+      const warningBox = document.getElementById("warningbox");
+      const warningText = document.getElementById("warningtext");
       const storageKey = "text-utils-api-key";
 
       apiKeyInput.value = localStorage.getItem(storageKey) || "";
 
-      publishButton.addEventListener("click", async () => {
+      async function submitShare(overwrite) {
         const apiKey = apiKeyInput.value.trim();
         const slug = slugInput.value.trim();
         const title = titleInput.value.trim();
@@ -489,9 +518,12 @@ SHARE_EDITOR_PAGE = """<!DOCTYPE html>
 
         localStorage.setItem(storageKey, apiKey);
         publishButton.disabled = true;
+        overwriteButton.disabled = true;
         statusEl.textContent = "Publishing...";
         linkBox.style.display = "none";
         linkBox.textContent = "";
+        warningBox.style.display = "none";
+        warningText.textContent = "";
 
         try {
           const response = await fetch("/v1/share", {
@@ -500,23 +532,38 @@ SHARE_EDITOR_PAGE = """<!DOCTYPE html>
               "Content-Type": "application/json",
               "X-API-Key": apiKey
             },
-            body: JSON.stringify({ slug, title, markdown })
+            body: JSON.stringify({ slug, title, markdown, overwrite })
           });
 
           const data = await response.json();
           if (!response.ok) {
+            if (response.status === 409) {
+              statusEl.textContent = "Slug already exists.";
+              warningText.textContent = (data.detail || "That slug is already in use.") + " Overwriting will replace the existing share.";
+              warningBox.style.display = "block";
+              return;
+            }
             statusEl.textContent = data.detail || "Unable to publish share.";
             return;
           }
 
-          statusEl.textContent = "Share created.";
+          statusEl.textContent = data.overwritten ? "Share overwritten." : "Share created.";
           linkBox.style.display = "block";
           linkBox.innerHTML = '<a href="' + data.share_url + '">' + data.share_url + "</a>";
         } catch (error) {
           statusEl.textContent = "Network error while publishing share.";
         } finally {
           publishButton.disabled = false;
+          overwriteButton.disabled = false;
         }
+      }
+
+      publishButton.addEventListener("click", async () => {
+        await submitShare(false);
+      });
+
+      overwriteButton.addEventListener("click", async () => {
+        await submitShare(true);
       });
     </script>
   </body>
@@ -694,18 +741,35 @@ def create_markdown_share(
     payload: ShareRequest,
     _: str = Depends(require_api_key),
 ) -> ShareResponse:
+    overwritten = False
+
     try:
+        db_path = _share_db_path()
         share = create_share(
-            _share_db_path(),
+            db_path,
             slug=payload.slug,
             title=_share_title(payload.title, payload.slug),
             markdown=payload.markdown,
         )
     except ShareAlreadyExistsError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Slug '{exc.args[0]}' already exists.",
-        ) from exc
+        if payload.overwrite:
+            share = overwrite_share(
+                _share_db_path(),
+                slug=payload.slug,
+                title=_share_title(payload.title, payload.slug),
+                markdown=payload.markdown,
+            )
+            if share is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Share not found for overwrite.",
+                ) from exc
+            overwritten = True
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Slug '{exc.args[0]}' already exists. Submit again with overwrite=true to replace it.",
+            ) from exc
 
     return ShareResponse(
         slug=share.slug,
@@ -713,6 +777,7 @@ def create_markdown_share(
         markdown=share.markdown,
         created_at=share.created_at,
         share_url=_share_url(share.slug),
+        overwritten=overwritten,
     )
 
 
@@ -728,6 +793,7 @@ def get_markdown_share(slug: str) -> ShareResponse:
         markdown=share.markdown,
         created_at=share.created_at,
         share_url=_share_url(share.slug),
+        overwritten=False,
     )
 
 

@@ -52,6 +52,24 @@ def create_share(db_path: str, slug: str, title: str, markdown: str) -> ShareRec
     return get_share(db_path, slug)
 
 
+def overwrite_share(db_path: str, slug: str, title: str, markdown: str) -> ShareRecord | None:
+    with sqlite3.connect(db_path) as connection:
+        cursor = connection.execute(
+            """
+            UPDATE shares
+            SET title = ?, markdown = ?
+            WHERE slug = ?
+            """,
+            (title, markdown, slug),
+        )
+        connection.commit()
+
+    if cursor.rowcount == 0:
+        return None
+
+    return get_share(db_path, slug)
+
+
 def get_share(db_path: str, slug: str) -> ShareRecord | None:
     with sqlite3.connect(db_path) as connection:
         connection.row_factory = sqlite3.Row

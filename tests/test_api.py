@@ -26,6 +26,7 @@ def test_share_editor_page_is_available() -> None:
 
     assert response.status_code == 200
     assert "Publish Share" in response.text
+    assert "Overwrite Existing Share" in response.text
     assert "/v1/share" in response.text
 
 
@@ -157,6 +158,7 @@ def test_markdown_share_creation_and_render() -> None:
     assert response.status_code == 201
     body = response.json()
     assert body["share_url"] == f"https://tiny.vk2fgav.com/share/{slug}"
+    assert body["overwritten"] is False
 
     api_response = client.get(f"/v1/share/{slug}")
     assert api_response.status_code == 200
@@ -177,3 +179,22 @@ def test_markdown_share_duplicate_slug_returns_conflict() -> None:
 
     assert first_response.status_code == 201
     assert second_response.status_code == 409
+    assert "overwrite=true" in second_response.json()["detail"]
+
+
+def test_markdown_share_can_be_overwritten() -> None:
+    slug = f"replace-{uuid4().hex[:8]}"
+    first_payload = {"slug": slug, "title": "First", "markdown": "first"}
+    second_payload = {"slug": slug, "title": "Second", "markdown": "second", "overwrite": True}
+
+    first_response = client.post("/v1/share", headers={"X-API-Key": "test-key"}, json=first_payload)
+    second_response = client.post("/v1/share", headers={"X-API-Key": "test-key"}, json=second_payload)
+
+    assert first_response.status_code == 201
+    assert second_response.status_code == 201
+    assert second_response.json()["overwritten"] is True
+
+    fetch_response = client.get(f"/v1/share/{slug}")
+    assert fetch_response.status_code == 200
+    assert fetch_response.json()["title"] == "Second"
+    assert fetch_response.json()["markdown"] == "second"
