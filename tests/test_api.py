@@ -1,4 +1,5 @@
 from io import BytesIO
+from uuid import uuid4
 
 from fastapi.testclient import TestClient
 from PIL import Image
@@ -18,6 +19,14 @@ def test_root_returns_landing_page() -> None:
     assert "text/html" in response.headers["content-type"]
     assert "Text Utils API" in response.text
     assert "/docs" in response.text
+
+
+def test_share_editor_page_is_available() -> None:
+    response = client.get("/share")
+
+    assert response.status_code == 200
+    assert "Publish Share" in response.text
+    assert "/v1/share" in response.text
 
 
 def test_healthcheck_is_public() -> None:
@@ -135,3 +144,36 @@ def test_test_image_endpoint() -> None:
 
     image = Image.open(BytesIO(response.content))
     assert image.size == (320, 180)
+
+
+def test_markdown_share_creation_and_render() -> None:
+    slug = f"example-{uuid4().hex[:8]}"
+    response = client.post(
+        "/v1/share",
+        headers={"X-API-Key": "test-key"},
+        json={"slug": slug, "title": "Example Share", "markdown": "# Hello\n\nThis is **markdown**."},
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["share_url"] == f"https://tiny.vk2fgav.com/share/{slug}"
+
+    api_response = client.get(f"/v1/share/{slug}")
+    assert api_response.status_code == 200
+    assert api_response.json()["markdown"] == "# Hello\n\nThis is **markdown**."
+
+    page_response = client.get(f"/share/{slug}")
+    assert page_response.status_code == 200
+    assert "<h1>Hello</h1>" in page_response.text
+    assert "Example Share" in page_response.text
+
+
+def test_markdown_share_duplicate_slug_returns_conflict() -> None:
+    slug = f"dupe-{uuid4().hex[:8]}"
+    payload = {"slug": slug, "markdown": "first"}
+
+    first_response = client.post("/v1/share", headers={"X-API-Key": "test-key"}, json=payload)
+    second_response = client.post("/v1/share", headers={"X-API-Key": "test-key"}, json=payload)
+
+    assert first_response.status_code == 201
+    assert second_response.status_code == 409

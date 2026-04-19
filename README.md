@@ -1,6 +1,6 @@
 # Text Utils API
 
-Small FastAPI service for text transformations and analysis. It includes unicode styling, zalgo text generation, slug creation, text statistics, and case conversion behind API key authentication.
+Small FastAPI service for text transformations, markdown sharing, and analysis. It includes unicode styling, zalgo text generation, slug creation, text statistics, case conversion, placeholder image generation, and persistent pastebin-style markdown shares behind API key authentication where appropriate.
 
 ## Features
 
@@ -10,6 +10,10 @@ Small FastAPI service for text transformations and analysis. It includes unicode
 - `POST /v1/text-stats`
 - `POST /v1/case-convert`
 - `GET /v1/test-image`
+- `POST /v1/share`
+- `GET /v1/share/{slug}`
+- `GET /share`
+- `GET /share/{slug}`
 - `X-API-Key` and `Authorization: Bearer ...` auth support
 - Dockerized for local runs and GHCR publishing
 - GitHub Actions workflow for image builds on `main`
@@ -22,6 +26,10 @@ Small FastAPI service for text transformations and analysis. It includes unicode
 - `POST /v1/text-stats`: returns word, sentence, line, and character counts
 - `POST /v1/case-convert`: converts text into common naming and display cases
 - `GET /v1/test-image`: generates configurable placeholder PNGs similar to `placehold.co`
+- `POST /v1/share`: creates a persistent markdown share for a chosen slug
+- `GET /v1/share/{slug}`: returns stored markdown share metadata and content as JSON
+- `GET /share`: pastebin-style frontend for creating shares
+- `GET /share/{slug}`: public rendered markdown page for a stored share
 
 ## Request examples
 
@@ -75,6 +83,21 @@ curl "http://localhost:8000/v1/test-image?width=600&height=300&text=Hello&bg=f4e
   --output placeholder.png
 ```
 
+Markdown share:
+
+```bash
+curl -X POST http://localhost:8000/v1/share \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-key-change-me" \
+  -d "{\"slug\":\"example\",\"title\":\"Example Share\",\"markdown\":\"# Hello\\n\\nThis is **markdown**.\"}"
+```
+
+Example share URL:
+
+```text
+https://tiny.vk2fgav.com/share/example
+```
+
 ## Local run
 
 1. Copy the example env and set an API key:
@@ -82,6 +105,7 @@ curl "http://localhost:8000/v1/test-image?width=600&height=300&text=Hello&bg=f4e
 ```powershell
 Copy-Item .env.example .env
 $env:API_KEYS="dev-key-change-me"
+$env:SHARE_BASE_URL="https://tiny.vk2fgav.com"
 ```
 
 2. Install dependencies and start the server:
@@ -94,6 +118,7 @@ uvicorn app.main:app --reload
 ```
 
 The API will be available at `http://localhost:8000`, with Swagger docs at `http://localhost:8000/docs`.
+The share editor will be available at `http://localhost:8000/share`.
 
 ## Docker
 
@@ -102,6 +127,7 @@ docker compose up --build
 ```
 
 The compose service name is `text-utils-api`.
+The default compose setup mounts `./data` into the container so markdown shares persist across restarts.
 
 ## GHCR publishing
 

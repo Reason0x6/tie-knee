@@ -6,3 +6,7 @@ services:
       - "8000:8000"
     environment:
       API_KEYS: dev-key-change-me
+      SHARE_BASE_URL: https://tiny.vk2fgav.com
+      SHARE_DB_PATH: /app/data/text-utils.db
+    volumes:
+      - ./data:/app/data
